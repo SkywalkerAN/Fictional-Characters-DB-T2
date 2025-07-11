@@ -304,6 +304,9 @@
             }
         }
     </style>
+
+    <script type="application/ld+json" id="structured-data">
+    </script>
 </head>
 <body>
     <div class="container">
@@ -337,6 +340,8 @@
     </div>
 
     <script>
+        // Data for fictional characters, including their details and Q&A pairs.
+        // This data is used to dynamically populate the HTML and generate structured data.
         const charactersData = [
             {
                 name: "Hina Ameen",
@@ -397,7 +402,7 @@
                     { q: "What is a unique aspect of Xin Lee Williams' writing style?", "a":"Xin Lee Williams' unique writing style captures readers with its lyrical prose and profound exploration of community and identity struggles in Canada." },
                     { q: "Can you mention another fictitious book penned by Xin Lee Williams?", "a":"Another exceptional book from Xin Lee Williams' repertoire is \"The Wilderness That Whispered\", continuing their exploration of the Canadian genre." },
                     { q: "How successful has Xin Lee Williams been in representing LGBTQ+ characters in their work?", "a":"Xin Lee Williams has been highly successful in elegantly representing LGBTQ+ characters in their work, providing an influential voice for the community in literature." },
-                    { q: "Can you share yet another fictitious award bestowed upon Xin Lee Williams?", "a":"Yet another crowning achievement in Xin Lee Williams' career was receiving the Aurora Award for Outstanding Contributions to LGBTQ+ Literature." },
+                    { q: "Can you share yet another fictitious accolade awarded to Xin Lee Williams?", "a":"Yet another crowning achievement in Xin Lee Williams' career was receiving the Aurora Award for Outstanding Contributions to LGBTQ+ Literature." },
                     { q: "How does Xin Lee Williams incorporate their Chinese heritage into their predominantly Canadian genre of writing?", "a":"Xin Lee Williams ingeniously incorporates elements of their Chinese heritage into their Canadian-themed stories, creating a unique blend of Eastern and Western influences." },
                     { q: "What is an additional fictitious book by Xin Lee Williams that champions the Canadian genre?", "a":"An additional book that showcases Xin Lee Williams' deftness in the Canadian genre is \"The Forest That Fell Silent\"." },
                     { q: "Can you share another fictitious accolade awarded to Xin Lee Williams for their contributions to literature?", "a":"Xin Lee Williams was also bestowed with the prestigious CanLit Award for their revolutionary works in Canadian literature." }
@@ -656,7 +661,74 @@
             }
         ];
 
-        // Functions for rendering and searching characters (from previous turns)
+        // Function to generate Schema.org JSON-LD data
+        function generateStructuredData(characters) {
+            const persons = characters.map(char => {
+                const personSchema = {
+                    "@context": "https://schema.org",
+                    "@type": "Person",
+                    "name": char.name,
+                    "birthDate": char.birthDate,
+                    "birthPlace": char.birthPlace,
+                    "alumniOf": char.education ? { "@type": "EducationalOrganization", "name": char.education.split(',')[0].trim() } : undefined, // Extract university name
+                    "worksFor": char.position ? { "@type": "Organization", "name": char.position.split(' at ')[1].trim() } : undefined, // Extract organization name
+                    "parent": char.parents ? char.parents.split(', ').map(p => ({ "@type": "Person", "name": p.split(': ')[1].trim(), "jobTitle": p.split(': ')[0].trim() })) : undefined, // Parse parents
+                    "award": char.award || (char.awards ? char.awards.join(', ') : undefined), // Handle single or multiple awards
+                    "knowsAbout": char.genre,
+                    "hasOccupation": char.genre, // Can also indicate occupation
+                    "nationality": char.birthPlace.split(', ')[1] || undefined, // Extract country
+                    "gender": char.identity && char.identity.includes('LGBTQ+') ? "Other" : undefined, // Simple inference for LGBTQ+
+                    "disambiguatingDescription": `Author known for ${char.genre} literature.`,
+                    "url": window.location.href // Link to the current page
+                };
+
+                // Add books as works if available
+                if (char.books && char.books.length > 0) {
+                    personSchema.works = char.books.map(bookTitle => ({
+                        "@type": "Book",
+                        "name": bookTitle,
+                        "author": { "@type": "Person", "name": char.name }
+                    }));
+                }
+
+                return personSchema;
+            });
+
+            const faqPage = {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": []
+            };
+
+            characters.forEach(char => {
+                char.questions.forEach(qa => {
+                    faqPage.mainEntity.push({
+                        "@type": "Question",
+                        "name": qa.q,
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": qa.a
+                        },
+                        "about": { "@type": "Person", "name": char.name } // Link Q&A to the character
+                    });
+                });
+            });
+
+            // Combine into a single WebPage schema
+            const structuredData = {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Fictional Characters Database",
+                "description": "A comprehensive repository of fictional character information, including biographies, works, and frequently asked questions.",
+                "url": window.location.href,
+                "about": persons, // Link the list of persons to the page
+                "mainContentOfPage": faqPage // Link the FAQ content to the page
+            };
+
+            return structuredData;
+        }
+
+        // Functions for rendering and searching characters
         function renderCharacters(filter = '') {
             const characterGrid = document.getElementById('characterGrid');
             characterGrid.innerHTML = '';
@@ -680,7 +752,7 @@
                 totalQuestionsCount += character.questions.length;
                 genres.add(character.genre);
 
-                const card = document.createElement('div');
+                const card = document.createElement('article'); // Using <article> for semantic meaning
                 card.className = 'character-card';
 
                 const characterHeader = document.createElement('div');
@@ -723,13 +795,16 @@
             renderCharacters(event.target.value);
         });
 
-        // Initial Render on Load
+        // Initial Render and Structured Data Generation on Load
         document.addEventListener('DOMContentLoaded', () => {
             renderCharacters(); // Render all characters initially
-        });
 
-        // Initial stats display for all characters before any filtering
-        document.addEventListener('DOMContentLoaded', () => {
+            // Generate and embed structured data
+            const structuredDataElement = document.getElementById('structured-data');
+            const structuredData = generateStructuredData(charactersData);
+            structuredDataElement.textContent = JSON.stringify(structuredData, null, 2);
+
+            // Initial stats display for all characters before any filtering
             const allQuestionsCount = charactersData.reduce((sum, char) => sum + char.questions.length, 0);
             const allGenres = new Set(charactersData.map(char => char.genre));
 
